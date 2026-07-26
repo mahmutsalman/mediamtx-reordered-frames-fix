@@ -1,0 +1,17 @@
+# Isolated MediaMTX instance for testing a candidate build with ZERO impact on a
+# running production instance. Spare ports throughout.
+#
+# moq: no is the unlock — without it :8892 clashes with the production instance and
+# this one dies at startup. It works from v1.19.3; it did NOT in v1.19.1.
+logLevel: info
+rtsp: no
+rtmp: no
+hls: no
+webrtc: no
+moq: no
+rtspAddress: :18554
+webrtcAddress: :18889
+srt: yes
+srtAddress: :18890
+paths:
+  live:

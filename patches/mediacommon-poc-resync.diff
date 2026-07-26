@@ -1,0 +1,60 @@
+diff --git a/pkg/codecs/h264/dts_extractor.go b/pkg/codecs/h264/dts_extractor.go
+index 2d0f288..0756af4 100644
+--- a/pkg/codecs/h264/dts_extractor.go
++++ b/pkg/codecs/h264/dts_extractor.go
+@@ -167,6 +167,10 @@ outer:
+ 	}
+ 
+ 	var ptsDTSDiff int
++	// observed POC of this access unit, needed to re-sync after a stream
++	// discontinuity (lost frames) instead of tearing down the reader.
++	var observedPOC uint32
++	var observedPOCValid bool
+ 
+ 	switch {
+ 	case idr != nil:
+@@ -221,6 +225,9 @@ outer:
+ 		d.expectedPOC += uint32(d.pocIncrement)
+ 		d.expectedPOC &= ((1 << (d.spsp.Log2MaxPicOrderCntLsbMinus4 + 4)) - 1)
+ 
++		observedPOC = poc
++		observedPOCValid = true
++
+ 		ptsDTSDiff = int(pictureOrderCountDiff(poc, d.expectedPOC, d.spsp)) / d.pocIncrement
+ 
+ 	case !nonZeroNalRefIDFound:
+@@ -239,7 +246,17 @@ outer:
+ 	case ptsDTSDiff > (2*d.reorderedFrames + 1):
+ 		increase := ptsDTSDiff - (2*d.reorderedFrames + 1)
+ 		if (d.reorderedFrames + increase) > maxReorderedFrames {
+-			return 0, false, fmt.Errorf("too many reordered frames (%d)", d.reorderedFrames+increase)
++			// A jump this large is not reordering, it is a DISCONTINUITY: access units
++			// were lost upstream, so expectedPOC has fallen behind the real stream.
++			// Re-sync to what we actually observed and continue, instead of returning
++			// an error that tears down every reader of this path.
++			if observedPOCValid {
++				d.expectedPOC = observedPOC
++			}
++			d.reorderedFrames = 0
++			d.pause = 0
++			ptsDTSDiff = 0
++			break
+ 		}
+ 
+ 		d.reorderedFrames += increase
+@@ -249,7 +266,14 @@ outer:
+ 	case ptsDTSDiff < 0:
+ 		increase := -ptsDTSDiff
+ 		if (d.reorderedFrames + increase) > maxReorderedFrames {
+-			return 0, false, fmt.Errorf("too many reordered frames (%d)", d.reorderedFrames+increase)
++			// same discontinuity case, negative direction (POC wrapped past half the space)
++			if observedPOCValid {
++				d.expectedPOC = observedPOC
++			}
++			d.reorderedFrames = 0
++			d.pause = 0
++			ptsDTSDiff = 0
++			break
+ 		}
+ 
+ 		d.reorderedFrames += increase
