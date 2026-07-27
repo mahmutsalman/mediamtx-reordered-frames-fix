@@ -96,6 +96,11 @@ type 2 *and* the switch does not cost you something else. In our case it did —
 
 - **Running in production since 2026-07-26** on a MediaMTX SRT relay. Patched binary reports
   `v1.19.3-dirty`.
+- **2026-07-27 — a full day of real broadcasting, `too many reordered frames` count: 0.**
+  Worth stating precisely, because that day was *not* quiet: the same relay had two upstream
+  broadcast disconnects and several restarts of its downstream publisher, all from unrelated
+  causes. Through all of it the extractor never tore down a reader. Before the patch, streams
+  that looked completely clean were each absorbing 8-10 reader-kills.
 - `mediacommon`'s own H.264 test suite passes unchanged.
 - **Not upstreamed.** Issue #5808 was closed and locked; a related proposal (#4892, carrying
   the container's DTS through) was declined. See
